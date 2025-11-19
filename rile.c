@@ -260,7 +260,7 @@ static void configure_output(struct Output *output) {
    * what kind of layout your client will create, so here we use "tile".
    */
   output->layout = river_layout_manager_v3_get_layout(layout_manager,
-                                                      output->output, "tile");
+                                                      output->output, "rile");
   river_layout_v3_add_listener(output->layout, &layout_listener, output);
 }
 
