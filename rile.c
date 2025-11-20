@@ -22,6 +22,17 @@
 #define MAX(a, b) (a > b ? a : b)
 #define CLAMP(a, b, c) (MIN(MAX(b, c), MAX(MIN(b, c), a)))
 
+/* Define number of views */
+#define LAYOUT_STYLE_COUNT 4
+
+/* Create an enum to describe the layout state */
+enum LayoutStyle {
+  TILE,   // Normal Tiled Layout
+  SPIRAL, // Decreasing Spiral
+  COLUMN, // Equal sized columns
+  STACK,  // Equal sized rows
+};
+
 struct Output {
   struct wl_list link;
 
@@ -32,6 +43,7 @@ struct Output {
   double main_ratio;
   uint32_t view_padding;
   uint32_t outer_padding;
+  enum LayoutStyle layout_style;
 
   bool configured;
 };
@@ -106,7 +118,20 @@ static void layout_handle_layout_demand(void *data,
    * status information about your layout, but in this example we are
    * boring and just use a static "[]=" like in dwm.
    */
-  river_layout_v3_commit(output->layout, "[]=", serial);
+  switch (output->layout_style) {
+  case TILE:
+    river_layout_v3_commit(output->layout, "[]=", serial);
+    break;
+  case SPIRAL:
+    river_layout_v3_commit(output->layout, "@", serial);
+    break;
+  case COLUMN:
+    river_layout_v3_commit(output->layout, "|||", serial);
+    break;
+  case STACK:
+    river_layout_v3_commit(output->layout, "=", serial);
+    break;
+  }
 }
 
 static void
@@ -242,6 +267,16 @@ layout_handle_user_command(void *data,
     output->main_ratio = 0.6;
     output->view_padding = 5;
     output->outer_padding = 5;
+  } else if (word_comp(command, "swap_layout")) {
+    // Check that no additional argument was passed
+    if (skip_nonwhitespace(&command) && skip_whitespace(&command)) {
+      fputs("ERROR: Too many arguments. 'reset' has no arguments.\n", stderr);
+      return;
+    }
+
+    // Swap to next layout style
+    output->layout_style = (output->layout_style + 1) % LAYOUT_STYLE_COUNT;
+
   } else
     fprintf(stderr, "ERROR: Unknown command: %s\n", command);
 }
