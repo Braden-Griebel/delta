@@ -48,6 +48,12 @@ struct Output {
   bool configured;
 };
 
+// Global variables for the parameters that can be passed in as arguments
+uint32_t global_main_count = 1;
+double global_main_ratio = 0.5;
+uint32_t global_view_padding = 5;
+uint32_t global_outer_padding = 5;
+
 /* In Wayland it's a good idea to have your main data global, since you'll need
  * it everywhere anyway.
  */
@@ -447,14 +453,14 @@ layout_handle_user_command(void *data,
       return;
     }
 
-    output->main_count = 1;
-    output->main_ratio = 0.6;
-    output->view_padding = 5;
-    output->outer_padding = 5;
+    output->main_count = global_main_count;
+    output->main_ratio = global_main_ratio;
+    output->view_padding = global_view_padding;
+    output->outer_padding = global_outer_padding;
   } else if (word_comp(command, "swap_layout")) {
     // Check that no additional argument was passed
     if (skip_nonwhitespace(&command) && skip_whitespace(&command)) {
-      fputs("ERROR: Too many arguments. 'reset' has no arguments.\n", stderr);
+      fputs("ERROR: Too many arguments. 'swap' has no arguments.\n", stderr);
       return;
     }
 
@@ -505,10 +511,10 @@ static bool create_output(struct wl_output *wl_output) {
    * layout values. The server only sends user_command events when there
    * actually is a command the user wants to send us.
    */
-  output->main_count = 1;
-  output->main_ratio = 0.6;
-  output->view_padding = 5;
-  output->outer_padding = 5;
+  output->main_count = global_main_count;
+  output->main_ratio = global_main_ratio;
+  output->view_padding = global_view_padding;
+  output->outer_padding = global_outer_padding;
 
   /* If we already have the river_layout_manager, we can get a
    * river_layout object for this output.
@@ -638,11 +644,28 @@ static void finish_wayland(void) {
 
 int main(int argc, char *argv[]) {
   // Step through the arguments
-  // uint32_t arg_pointer = 1;
-  // while (arg_pointer < argc) {
-  //   if (word_comp(argv[arg_pointer], "-view-padding")) {
-  //   }
-  // }
+  int arg_pointer = 1;
+  while (arg_pointer < argc) {
+    if (arg_pointer == argc - 1) {
+      fputs("ERROR: Argument with no value. All arguments must have values.\n",
+            stderr);
+      break;
+    }
+    if (word_comp(argv[arg_pointer], "-main-count")) {
+      global_main_count = MAX(atoi(argv[arg_pointer + 1]), 0);
+    } else if (word_comp(argv[arg_pointer], "-main-ratio")) {
+      global_main_ratio = CLAMP(atof(argv[arg_pointer + 1]), 0.0, 1.0);
+    } else if (word_comp(argv[arg_pointer], "-view-padding")) {
+      global_view_padding = MAX(atoi(argv[arg_pointer + 1]), 0);
+    } else if (word_comp(argv[arg_pointer], "-outer-padding")) {
+      global_outer_padding = MAX(atoi(argv[arg_pointer + 1]), 0);
+    }
+    arg_pointer += 2;
+  }
+  // printf("main count: %u", global_main_count);
+  // printf("main ratio: %lf", global_main_ratio);
+  // printf("view padding: %u", global_view_padding);
+  // printf("outer padding: %u", global_outer_padding);
 
   if (init_wayland()) {
     ret = EXIT_SUCCESS;
