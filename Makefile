@@ -6,7 +6,7 @@ clean:
 edit: river-layout-v3.h
 
 delta: river-layout-v3.h river-layout-v3.o delta.o
-	cc -o delta delta.o river-layout-v3.o -lwayland-client
+	cc -o delta delta.o river-layout-v3.o -lwayland-client -lm
 
 delta.o: delta.c river-layout-v3.h
 	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o delta.o delta.c

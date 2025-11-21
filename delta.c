@@ -6,6 +6,7 @@
  */
 #include <assert.h>
 #include <ctype.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,7 +24,7 @@
 #define CLAMP(a, b, c) (MIN(MAX(b, c), MAX(MIN(b, c), a)))
 
 /* Define number of views */
-#define LAYOUT_STYLE_COUNT 5
+#define LAYOUT_STYLE_COUNT 6
 
 /* Create an enum to describe the layout state */
 enum LayoutStyle {
@@ -32,6 +33,7 @@ enum LayoutStyle {
   DIMINISHING, // Dimminishing Spiral
   COLUMN,      // Equal sized columns
   STACK,       // Equal sized rows
+  GRID,        // Equal sized rows and columns
 };
 
 struct Output {
@@ -308,6 +310,60 @@ static void delta_handle_layout_demand_stack(
   river_layout_v3_commit(output->layout, "=", serial);
 }
 
+/**
+ * Handle a layout request for a grid layout
+ *
+ * This layout is a grid of views, with an equal number of rows and columns
+ *
+ * @param view_count number of views in the layout
+ * @param width width of the usable area
+ * @param height height of the usable area
+ * @param tags tags of teh output, 32-bit bitfield
+ * @param serial serial of the layout demand
+ * */
+static void delta_handle_layout_demand_grid(
+    struct Output *output, struct river_layout_v3 *river_layout_v3,
+    uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
+    uint32_t serial) {
+  // Start by calculating the available width and height after accocunting
+  // for the outer padding
+  width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
+  // Also calculate the number of rows/cols
+  uint32_t grid_size = floor(sqrt(view_count));
+  if (grid_size * grid_size < view_count) {
+    grid_size++;
+  }
+  unsigned int view_x,   // x-coord offset
+      view_y,            // y-coord offset
+      view_outer_height, // height of view (including view padding)
+      view_inner_height, // Height of view (without padding)
+      view_outer_width,  // width of view (including view padding)
+      view_inner_width,  // width of view (without padding)
+      row,               // Row of the view
+      col;               // Column of the view
+  view_outer_height = height / grid_size; // Equally divide the height into rows
+  view_outer_width = width / grid_size; // Equally divide the width into columns
+  view_inner_height = view_outer_height - (2 * output->view_padding);
+  view_inner_width = view_outer_width - (2 * output->view_padding);
+  // Iterate through all of the views, starting from the top of the stack
+  // In row major order
+  for (unsigned int i = 0; i < view_count; i++) {
+    // Find the row
+    row = i / grid_size;
+    col = i % grid_size;
+    view_x = col * view_outer_width;
+    view_y = row * view_outer_height;
+    river_layout_v3_push_view_dimensions(
+        output->layout,
+        view_x + output->view_padding + output->outer_padding, // View x-coord
+        view_y + output->view_padding + output->outer_padding, // View y-coord
+        view_inner_width,  // Just full usable width
+        view_inner_height, // Height of the view (accounting for padding )
+        serial);
+  }
+  river_layout_v3_commit(output->layout, "#", serial);
+}
+
 static void delta_handle_layout_demand(void *data,
                                        struct river_layout_v3 *river_layout_v3,
                                        uint32_t view_count, uint32_t width,
@@ -334,6 +390,10 @@ static void delta_handle_layout_demand(void *data,
   case STACK:
     delta_handle_layout_demand_stack(output, river_layout_v3, view_count, width,
                                      height, tags, serial);
+    break;
+  case GRID:
+    delta_handle_layout_demand_grid(output, river_layout_v3, view_count, width,
+                                    height, tags, serial);
     break;
   }
 }
