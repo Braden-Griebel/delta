@@ -23,14 +23,15 @@
 #define CLAMP(a, b, c) (MIN(MAX(b, c), MAX(MIN(b, c), a)))
 
 /* Define number of views */
-#define LAYOUT_STYLE_COUNT 4
+#define LAYOUT_STYLE_COUNT 5
 
 /* Create an enum to describe the layout state */
 enum LayoutStyle {
-  TILE,   // Normal Tiled Layout
-  SPIRAL, // Decreasing Spiral
-  COLUMN, // Equal sized columns
-  STACK,  // Equal sized rows
+  TILE,        // Normal Tiled Layout
+  SPIRAL,      // Fibonacci Spiral
+  DIMINISHING, // Dimminishing Spiral
+  COLUMN,      // Equal sized columns
+  STACK,       // Equal sized rows
 };
 
 struct Output {
@@ -179,10 +180,12 @@ static void delta_handle_layout_demand_spiral(
           view_width - (2 * output->view_padding),
           view_height - (2 * output->view_padding), serial);
     } else {
-      // If i is even, the width will be split
+
       if (i % 2 == 0) {
+        // If i is even, the width will be split
         view_width /= 2;
-        if (i % 4 == 2) {
+        if ((i % 4 == 2) && !diminish) {
+          // View is on the right side
           river_layout_v3_push_view_dimensions(
               output->layout,
               view_x + output->view_padding + output->outer_padding +
@@ -191,6 +194,7 @@ static void delta_handle_layout_demand_spiral(
               view_width - (2 * output->view_padding),
               view_height - (2 * output->view_padding), serial);
         } else {
+          // View is on the left side
           river_layout_v3_push_view_dimensions(
               output->layout,
               view_x + output->view_padding + output->outer_padding,
@@ -202,7 +206,8 @@ static void delta_handle_layout_demand_spiral(
       } else {
         // If i is odd, the height will be split
         view_height /= 2;
-        if (i % 4 == 3) {
+        if ((i % 4 == 3) && !diminish) {
+          // View is on the up side
           river_layout_v3_push_view_dimensions(
               output->layout,
               view_x + output->view_padding + output->outer_padding,
@@ -211,6 +216,7 @@ static void delta_handle_layout_demand_spiral(
               view_width - (2 * output->view_padding),
               view_height - (2 * output->view_padding), serial);
         } else {
+          // View is on the down side
           river_layout_v3_push_view_dimensions(
               output->layout,
               view_x + output->view_padding + output->outer_padding,
@@ -222,7 +228,11 @@ static void delta_handle_layout_demand_spiral(
       }
     }
   }
-  river_layout_v3_commit(output->layout, "@", serial);
+  if (diminish) {
+    river_layout_v3_commit(output->layout, "↘", serial);
+  } else {
+    river_layout_v3_commit(output->layout, "@", serial);
+  }
 }
 
 /**
@@ -312,6 +322,10 @@ static void delta_handle_layout_demand(void *data,
   case SPIRAL:
     delta_handle_layout_demand_spiral(output, river_layout_v3, view_count,
                                       width, height, tags, serial, false);
+    break;
+  case DIMINISHING:
+    delta_handle_layout_demand_spiral(output, river_layout_v3, view_count,
+                                      width, height, tags, serial, true);
     break;
   case COLUMN:
     delta_handle_layout_demand_column(output, river_layout_v3, view_count,
