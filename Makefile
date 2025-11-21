@@ -3,7 +3,7 @@ BINDIR ?= $(PREFIX)/bin
 BUILDDIR ?= build
 CC ?= cc
 
-all: $(BUILDDIR)/delta
+default: $(BUILDDIR)/delta
 
 install: $(BUILDDIR)/delta
 	install -D $(BUILDDIR)/delta $(BINDIR)/delta
