@@ -1,21 +1,36 @@
-all: delta
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
+BUILDDIR ?= build
+
+all: $(BUILDDIR)/delta
+
+install: $(BUILDDIR)/delta
+	install -D $(BUILDDIR)/delta $(BINDIR)/delta
 
 clean:
-	rm delta delta.o river-layout-v3.h river-layout-v3.o river-layout-v3.c
+	rm $(BUILDDIR)/delta
+	rm $(BUILDDIR)/delta.o
+	rm river-layout-v3.h
+	rm river-layout-v3.c
+	rm $(BUILDDIR)/river-layout-v3.o
+	rmdir $(BUILDDIR)
 
 edit: river-layout-v3.h
 
-delta: river-layout-v3.h river-layout-v3.o delta.o
-	cc -o delta delta.o river-layout-v3.o -lwayland-client -lm
+$(BUILDDIR)/delta: river-layout-v3.h $(BUILDDIR)/river-layout-v3.o $(BUILDDIR)/delta.o $(BUILDDIR)
+	cc -o $(BUILDDIR)/delta $(BUILDDIR)/delta.o $(BUILDDIR)/river-layout-v3.o -lwayland-client -lm
 
-delta.o: delta.c river-layout-v3.h
-	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o delta.o delta.c
+$(BUILDDIR)/delta.o: delta.c river-layout-v3.h $(BUILDDIR)
+	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o $(BUILDDIR)/delta.o delta.c
 
-river-layout-v3.o: river-layout-v3.c
-	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o river-layout-v3.o river-layout-v3.c
+$(BUILDDIR)/river-layout-v3.o: river-layout-v3.c $(BUILDDIR)
+	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o $(BUILDDIR)/river-layout-v3.o river-layout-v3.c
 
 river-layout-v3.c: river-layout-v3.xml
 	wayland-scanner private-code < river-layout-v3.xml > river-layout-v3.c
 
 river-layout-v3.h: river-layout-v3.xml
 	wayland-scanner client-header < river-layout-v3.xml > river-layout-v3.h
+
+$(BUILDDIR):
+	mkdir -p $(BUILDDIR)
