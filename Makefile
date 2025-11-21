@@ -1,6 +1,7 @@
 PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 BUILDDIR ?= build
+CC ?= cc
 
 all: $(BUILDDIR)/delta
 
@@ -18,13 +19,13 @@ clean:
 edit: river-layout-v3.h
 
 $(BUILDDIR)/delta: river-layout-v3.h $(BUILDDIR)/river-layout-v3.o $(BUILDDIR)/delta.o $(BUILDDIR)
-	cc -o $(BUILDDIR)/delta $(BUILDDIR)/delta.o $(BUILDDIR)/river-layout-v3.o -lwayland-client -lm
+	$(CC) -o $(BUILDDIR)/delta $(BUILDDIR)/delta.o $(BUILDDIR)/river-layout-v3.o -lwayland-client -lm
 
 $(BUILDDIR)/delta.o: delta.c river-layout-v3.h $(BUILDDIR)
-	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o $(BUILDDIR)/delta.o delta.c
+	$(CC) -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o $(BUILDDIR)/delta.o delta.c
 
 $(BUILDDIR)/river-layout-v3.o: river-layout-v3.c $(BUILDDIR)
-	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o $(BUILDDIR)/river-layout-v3.o river-layout-v3.c
+	$(CC) -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o $(BUILDDIR)/river-layout-v3.o river-layout-v3.c
 
 river-layout-v3.c: river-layout-v3.xml
 	wayland-scanner private-code < river-layout-v3.xml > river-layout-v3.c
