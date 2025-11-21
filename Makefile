@@ -1,13 +1,13 @@
-all: rile
+all: delta
 
 clean:
-	rm rile rile.o river-layout-v3.h river-layout-v3.o river-layout-v3.c
+	rm delta delta.o river-layout-v3.h river-layout-v3.o river-layout-v3.c
 
-rile: river-layout-v3.h river-layout-v3.o rile.o
-	cc -o rile rile.o river-layout-v3.o -lwayland-client
+delta: river-layout-v3.h river-layout-v3.o delta.o
+	cc -o delta delta.o river-layout-v3.o -lwayland-client
 
-rile.o: rile.c river-layout-v3.h
-	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o rile.o rile.c
+delta.o: delta.c river-layout-v3.h
+	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o delta.o delta.c
 
 river-layout-v3.o: river-layout-v3.c
 	cc -Wall -Wextra -Wpedantic -Wno-unused-parameter -c -o river-layout-v3.o river-layout-v3.c

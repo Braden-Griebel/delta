@@ -77,7 +77,7 @@ int ret = EXIT_FAILURE;
  * @param tags tags of teh output, 32-bit bitfield
  * @param serial serial of the layout demand
  * */
-static void layout_handle_layout_demand_tile(
+static void delta_handle_layout_demand_tile(
     struct Output *output, struct river_layout_v3 *river_layout_v3,
     uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
     uint32_t serial) {
@@ -156,10 +156,10 @@ static void layout_handle_layout_demand_tile(
   river_layout_v3_commit(output->layout, "[]=", serial);
 }
 
-static void layout_handle_layout_demand_spiral(
+static void delta_handle_layout_demand_spiral(
     struct Output *output, struct river_layout_v3 *river_layout_v3,
     uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
-    uint32_t serial) {
+    uint32_t serial, bool diminish) {
   width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
   printf("Usable width is: %d", width);
   printf("Usable height is: %d", height);
@@ -236,7 +236,7 @@ static void layout_handle_layout_demand_spiral(
  * @param tags tags of teh output, 32-bit bitfield
  * @param serial serial of the layout demand
  * */
-static void layout_handle_layout_demand_column(
+static void delta_handle_layout_demand_column(
     struct Output *output, struct river_layout_v3 *river_layout_v3,
     uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
     uint32_t serial) {
@@ -271,7 +271,7 @@ static void layout_handle_layout_demand_column(
  * @param tags tags of teh output, 32-bit bitfield
  * @param serial serial of the layout demand
  * */
-static void layout_handle_layout_demand_stack(
+static void delta_handle_layout_demand_stack(
     struct Output *output, struct river_layout_v3 *river_layout_v3,
     uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
     uint32_t serial) {
@@ -298,28 +298,28 @@ static void layout_handle_layout_demand_stack(
   river_layout_v3_commit(output->layout, "=", serial);
 }
 
-static void layout_handle_layout_demand(void *data,
-                                        struct river_layout_v3 *river_layout_v3,
-                                        uint32_t view_count, uint32_t width,
-                                        uint32_t height, uint32_t tags,
-                                        uint32_t serial) {
+static void delta_handle_layout_demand(void *data,
+                                       struct river_layout_v3 *river_layout_v3,
+                                       uint32_t view_count, uint32_t width,
+                                       uint32_t height, uint32_t tags,
+                                       uint32_t serial) {
   struct Output *output = (struct Output *)data;
   switch (output->layout_style) {
   case TILE:
-    layout_handle_layout_demand_tile(output, river_layout_v3, view_count, width,
-                                     height, tags, serial);
+    delta_handle_layout_demand_tile(output, river_layout_v3, view_count, width,
+                                    height, tags, serial);
     break;
   case SPIRAL:
-    layout_handle_layout_demand_spiral(output, river_layout_v3, view_count,
-                                       width, height, tags, serial);
+    delta_handle_layout_demand_spiral(output, river_layout_v3, view_count,
+                                      width, height, tags, serial, false);
     break;
   case COLUMN:
-    layout_handle_layout_demand_column(output, river_layout_v3, view_count,
-                                       width, height, tags, serial);
+    delta_handle_layout_demand_column(output, river_layout_v3, view_count,
+                                      width, height, tags, serial);
     break;
   case STACK:
-    layout_handle_layout_demand_stack(output, river_layout_v3, view_count,
-                                      width, height, tags, serial);
+    delta_handle_layout_demand_stack(output, river_layout_v3, view_count, width,
+                                     height, tags, serial);
     break;
   }
 }
@@ -473,7 +473,7 @@ layout_handle_user_command(void *data,
 
 static const struct river_layout_v3_listener layout_listener = {
     .namespace_in_use = layout_handle_namespace_in_use,
-    .layout_demand = layout_handle_layout_demand,
+    .layout_demand = delta_handle_layout_demand,
     .user_command = layout_handle_user_command,
 };
 
@@ -482,10 +482,10 @@ static void configure_output(struct Output *output) {
 
   /* The namespace of the layout is how the compositor chooses what layout
    * to use. It can be any arbitrary string. It should describe roughly
-   * what kind of layout your client will create, so here we use "rile".
+   * what kind of layout your client will create, so here we use "swapable".
    */
-  output->layout = river_layout_manager_v3_get_layout(layout_manager,
-                                                      output->output, "rile");
+  output->layout = river_layout_manager_v3_get_layout(
+      layout_manager, output->output, "swapable");
   river_layout_v3_add_listener(output->layout, &layout_listener, output);
 }
 
