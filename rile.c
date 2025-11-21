@@ -59,51 +59,94 @@ struct wl_list outputs;
 bool loop = true;
 int ret = EXIT_FAILURE;
 
+/**
+ * Handle a layout request for a Tiled layout
+ *
+ * The tiled layout has a set of main windows (laid out in a stack),
+ * and another column (also laid out in a stack)
+ *
+ * @param view_count number of views in the layout
+ * @param width width of the usable area
+ * @param height height of the usable area
+ * @param tags tags of teh output, 32-bit bitfield
+ * @param serial serial of the layout demand
+ * */
 static void layout_handle_layout_demand_tile(
     struct Output *output, struct river_layout_v3 *river_layout_v3,
     uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
     uint32_t serial) {
-  /* Simple tiled layout with no frills.
-   *
-   * If you want to create your own layout, just rip the following code
-   * out and replace it with your own logic. All dynamic tiling layouts
-   * you know, for example from dwm, can be easily ported to river this
-   * way. For more creative layouts, you probably also want to add custom
-   * values. Happy hacking!
-   */
+  /* Simple tiled layout with no frills.*/
+
+  // Start by calculating the width and the height after accounting for the
+  // padding
   width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
-  unsigned int main_size, stack_size, view_x, view_y, view_width, view_height;
+  unsigned int main_size, // Size (width) of the main column
+      stack_size,         // Size (width) of the stack
+      view_x,             // x-coord OFFSET of the view (from the left)
+      view_y,             // y-coord OFFSET of the view (from the top)
+      view_width,         // Width of the view
+      view_height;        // Height of the view
+  // If the number of views to be put in the main column is 0, set
+  // the main size to 0 and the stack size to the full width
   if (output->main_count == 0) {
     main_size = 0;
     stack_size = width;
   } else if (view_count <= output->main_count) {
+    /* If all of the views are to be assigned to the main stack, set the
+     * main size to be the full width, and the stack size to 0 */
     main_size = width;
     stack_size = 0;
   } else {
+    /* Otherwise, set the main size to the the width multiplied by the
+     * main ratio, and the stacksize to be the remainder of the usable area*/
     main_size = width * output->main_ratio;
     stack_size = width - main_size;
   }
+  // Iterate through each view, starting from the top of the stack
+  // NOTE: The view/inner padding is handled in the push view dimensions call
+  // below
   for (unsigned int i = 0; i < view_count; i++) {
-    if (i < output->main_count) /* main area. */
-    {
-      view_x = 0;
-      view_width = main_size;
-      view_height = height / MIN(output->main_count, view_count);
-      view_y = i * view_height;
-    } else /* Stack area. */
-    {
-      view_x = main_size;
-      view_width = stack_size;
-      view_height = height / (view_count - output->main_count);
-      view_y = (i - output->main_count) * view_height;
+    if (i < output->main_count) {
+      // The main area
+      view_x = 0;             // The offset for the main area is 0
+      view_width = main_size; // The width of the main area is the main_size
+      view_height =
+          height /
+          MIN(output->main_count,
+              view_count); // The height is divided equally among all main views
+      view_y = i * view_height; // Offset is the number of views above this one
+                                // multiplied by their height
+    } else {
+      // Stack area
+      view_x =
+          main_size; // This area starts after the full width of the main area
+      view_width = stack_size; // The width is the previously calculated width
+                               // of the stack size
+      view_height =
+          height /
+          (view_count -
+           output->main_count); // Height is divided equally among views
+      view_y = (i - output->main_count) *
+               view_height; // View offset calculated from number of views
+                            // above, and their heights
     }
 
+    // Submit the dimensions to the view
     river_layout_v3_push_view_dimensions(
-        output->layout, view_x + output->view_padding + output->outer_padding,
-        view_y + output->view_padding + output->outer_padding,
-        view_width - (2 * output->view_padding),
-        view_height - (2 * output->view_padding), serial);
+        output->layout, // This is just passed in from the data
+        view_x + output->view_padding +
+            output
+                ->outer_padding, // The x-coord is the offset from above, plus
+                                 // the view padding. This is added to the
+                                 // outer_padding to get the actual x-coordinate
+        view_y + output->view_padding +
+            output->outer_padding, // Same as the x-coord
+        view_width -
+            (2 * output->view_padding), // Width, accounting for desired padding
+        view_height - (2 * output->view_padding),
+        serial); // Height, accounting for desired padding
   }
+  // Commit the layout (finalize the layout which was set for the various views)
   river_layout_v3_commit(output->layout, "[]=", serial);
 }
 
@@ -187,42 +230,42 @@ static void layout_handle_layout_demand_column(
   river_layout_v3_commit(output->layout, "|||", serial);
 }
 
+/**
+ * Handle a layout request for a stacked layout
+ *
+ * This layout is just a single stack across the entire usable width
+ *
+ * @param view_count number of views in the layout
+ * @param width width of the usable area
+ * @param height height of the usable area
+ * @param tags tags of teh output, 32-bit bitfield
+ * @param serial serial of the layout demand
+ * */
 static void layout_handle_layout_demand_stack(
     struct Output *output, struct river_layout_v3 *river_layout_v3,
     uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
     uint32_t serial) {
+  // Start by calculating the available width and height after accocunting
+  // for the outer padding
   width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
-  unsigned int main_size, stack_size, view_x, view_y, view_width, view_height;
-  if (output->main_count == 0) {
-    main_size = 0;
-    stack_size = width;
-  } else if (view_count <= output->main_count) {
-    main_size = width;
-    stack_size = 0;
-  } else {
-    main_size = width * output->main_ratio;
-    stack_size = width - main_size;
-  }
+  unsigned int view_y,   // y-coord offset
+      view_outer_height, // Total height of view (including padding)
+      view_inner_height, // Height of view (without padding)
+      view_width;        // Width of view (not including padding)
+  view_outer_height = height / view_count;
+  view_width = width - (2 * output->view_padding);
+  view_inner_height = view_outer_height - (2 * output->view_padding);
+  // Iterate through all of the views, starting from the top of the stack
   for (unsigned int i = 0; i < view_count; i++) {
-    if (i < output->main_count) /* main area. */
-    {
-      view_x = 0;
-      view_width = main_size;
-      view_height = height / MIN(output->main_count, view_count);
-      view_y = i * view_height;
-    } else /* Stack area. */
-    {
-      view_x = main_size;
-      view_width = stack_size;
-      view_height = height / (view_count - output->main_count);
-      view_y = (i - output->main_count) * view_height;
-    }
-
+    view_y = i * view_outer_height;
     river_layout_v3_push_view_dimensions(
-        output->layout, view_x + output->view_padding + output->outer_padding,
-        view_y + output->view_padding + output->outer_padding,
-        view_width - (2 * output->view_padding),
-        view_height - (2 * output->view_padding), serial);
+        output->layout,
+        output->outer_padding, // View x-coord is just the outer_padding
+        view_y + output->view_padding +
+            output->outer_padding, // View y-coord accounting for padding
+        view_width,                // Same for all views
+        view_inner_height, // Height of the view (accounting for padding )
+        serial);
   }
   river_layout_v3_commit(output->layout, "=", serial);
 }
