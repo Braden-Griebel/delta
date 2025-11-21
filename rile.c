@@ -638,11 +638,11 @@ static void finish_wayland(void) {
 
 int main(int argc, char *argv[]) {
   // Step through the arguments
-  uint32_t arg_pointer = 1;
-  while (arg_pointer < argc) {
-    if (word_comp(argv[arg_pointer], "-view-padding")) {
-    }
-  }
+  // uint32_t arg_pointer = 1;
+  // while (arg_pointer < argc) {
+  //   if (word_comp(argv[arg_pointer], "-view-padding")) {
+  //   }
+  // }
 
   if (init_wayland()) {
     ret = EXIT_SUCCESS;
