@@ -155,77 +155,101 @@ static void layout_handle_layout_demand_spiral(
     uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
     uint32_t serial) {
   width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
-  unsigned int main_size, stack_size, view_x, view_y, view_width, view_height;
-  if (output->main_count == 0) {
-    main_size = 0;
-    stack_size = width;
-  } else if (view_count <= output->main_count) {
-    main_size = width;
-    stack_size = 0;
-  } else {
-    main_size = width * output->main_ratio;
-    stack_size = width - main_size;
-  }
+  printf("Usable width is: %d", width);
+  printf("Usable height is: %d", height);
+  unsigned int view_x, view_y, view_width, view_height;
+  view_x = 0;
+  view_y = 0;
+  // View width starts as full width
+  view_width = width;
+  // Same with height
+  view_height = height;
   for (unsigned int i = 0; i < view_count; i++) {
-    if (i < output->main_count) /* main area. */
-    {
-      view_x = 0;
-      view_width = main_size;
-      view_height = height / MIN(output->main_count, view_count);
-      view_y = i * view_height;
-    } else /* Stack area. */
-    {
-      view_x = main_size;
-      view_width = stack_size;
-      view_height = height / (view_count - output->main_count);
-      view_y = (i - output->main_count) * view_height;
+    if (i == view_count - 1) {
+      // For the last view, just take the full width/height
+      river_layout_v3_push_view_dimensions(
+          output->layout, view_x + output->view_padding + output->outer_padding,
+          view_y + output->view_padding + output->outer_padding,
+          view_width - (2 * output->view_padding),
+          view_height - (2 * output->view_padding), serial);
+    } else {
+      // If i is even, the width will be split
+      if (i % 2 == 0) {
+        view_width /= 2;
+        if (i % 4 == 2) {
+          river_layout_v3_push_view_dimensions(
+              output->layout,
+              view_x + output->view_padding + output->outer_padding +
+                  view_width,
+              view_y + output->view_padding + output->outer_padding,
+              view_width - (2 * output->view_padding),
+              view_height - (2 * output->view_padding), serial);
+        } else {
+          river_layout_v3_push_view_dimensions(
+              output->layout,
+              view_x + output->view_padding + output->outer_padding,
+              view_y + output->view_padding + output->outer_padding,
+              view_width - (2 * output->view_padding),
+              view_height - (2 * output->view_padding), serial);
+          view_x += view_width;
+        }
+      } else {
+        // If i is odd, the height will be split
+        view_height /= 2;
+        if (i % 4 == 3) {
+          river_layout_v3_push_view_dimensions(
+              output->layout,
+              view_x + output->view_padding + output->outer_padding,
+              view_y + output->view_padding + output->outer_padding +
+                  view_height,
+              view_width - (2 * output->view_padding),
+              view_height - (2 * output->view_padding), serial);
+        } else {
+          river_layout_v3_push_view_dimensions(
+              output->layout,
+              view_x + output->view_padding + output->outer_padding,
+              view_y + output->view_padding + output->outer_padding,
+              view_width - (2 * output->view_padding),
+              view_height - (2 * output->view_padding), serial);
+          view_y += view_height;
+        }
+      }
     }
-
-    river_layout_v3_push_view_dimensions(
-        output->layout, view_x + output->view_padding + output->outer_padding,
-        view_y + output->view_padding + output->outer_padding,
-        view_width - (2 * output->view_padding),
-        view_height - (2 * output->view_padding), serial);
   }
   river_layout_v3_commit(output->layout, "@", serial);
 }
 
+/**
+ * Handle a layout request for a column layout
+ *
+ * This layout is just equal sized columns for each view
+ *
+ * @param view_count number of views in the layout
+ * @param width width of the usable area
+ * @param height height of the usable area
+ * @param tags tags of teh output, 32-bit bitfield
+ * @param serial serial of the layout demand
+ * */
 static void layout_handle_layout_demand_column(
     struct Output *output, struct river_layout_v3 *river_layout_v3,
     uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
     uint32_t serial) {
+  // Find the usable width and height accounting for padding
   width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
-  unsigned int main_size, stack_size, view_x, view_y, view_width, view_height;
-  if (output->main_count == 0) {
-    main_size = 0;
-    stack_size = width;
-  } else if (view_count <= output->main_count) {
-    main_size = width;
-    stack_size = 0;
-  } else {
-    main_size = width * output->main_ratio;
-    stack_size = width - main_size;
-  }
+  unsigned int view_x,  // x-coord offset
+      view_outer_width, // Total width of view (including padding)
+      view_inner_width; // width of view (without padding)
+  view_outer_width = width / view_count;
+  view_inner_width = view_outer_width - (2 * output->view_padding);
   for (unsigned int i = 0; i < view_count; i++) {
-    if (i < output->main_count) /* main area. */
-    {
-      view_x = 0;
-      view_width = main_size;
-      view_height = height / MIN(output->main_count, view_count);
-      view_y = i * view_height;
-    } else /* Stack area. */
-    {
-      view_x = main_size;
-      view_width = stack_size;
-      view_height = height / (view_count - output->main_count);
-      view_y = (i - output->main_count) * view_height;
-    }
-
+    view_x = i * view_outer_width;
     river_layout_v3_push_view_dimensions(
-        output->layout, view_x + output->view_padding + output->outer_padding,
-        view_y + output->view_padding + output->outer_padding,
-        view_width - (2 * output->view_padding),
-        view_height - (2 * output->view_padding), serial);
+        output->layout,
+        view_x + output->view_padding + output->outer_padding, // x-coord
+        output->outer_padding,                                 // y-coord
+        view_inner_width, // Width of view (after padding accounted for)
+        height,           // Full usable height
+        serial);
   }
   river_layout_v3_commit(output->layout, "|||", serial);
 }
@@ -250,10 +274,8 @@ static void layout_handle_layout_demand_stack(
   width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
   unsigned int view_y,   // y-coord offset
       view_outer_height, // Total height of view (including padding)
-      view_inner_height, // Height of view (without padding)
-      view_width;        // Width of view (not including padding)
+      view_inner_height; // Height of view (without padding)
   view_outer_height = height / view_count;
-  view_width = width - (2 * output->view_padding);
   view_inner_height = view_outer_height - (2 * output->view_padding);
   // Iterate through all of the views, starting from the top of the stack
   for (unsigned int i = 0; i < view_count; i++) {
@@ -263,7 +285,7 @@ static void layout_handle_layout_demand_stack(
         output->outer_padding, // View x-coord is just the outer_padding
         view_y + output->view_padding +
             output->outer_padding, // View y-coord accounting for padding
-        view_width,                // Same for all views
+        width,                     // Just full usable width
         view_inner_height, // Height of the view (accounting for padding )
         serial);
   }
@@ -454,7 +476,7 @@ static void configure_output(struct Output *output) {
 
   /* The namespace of the layout is how the compositor chooses what layout
    * to use. It can be any arbitrary string. It should describe roughly
-   * what kind of layout your client will create, so here we use "tile".
+   * what kind of layout your client will create, so here we use "rile".
    */
   output->layout = river_layout_manager_v3_get_layout(layout_manager,
                                                       output->output, "rile");
@@ -615,6 +637,13 @@ static void finish_wayland(void) {
 }
 
 int main(int argc, char *argv[]) {
+  // Step through the arguments
+  uint32_t arg_pointer = 1;
+  while (arg_pointer < argc) {
+    if (word_comp(argv[arg_pointer], "-view-padding")) {
+    }
+  }
+
   if (init_wayland()) {
     ret = EXIT_SUCCESS;
     while (loop && wl_display_dispatch(wl_display) != -1)
