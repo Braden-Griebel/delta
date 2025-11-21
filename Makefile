@@ -9,11 +9,11 @@ install: $(BUILDDIR)/delta
 	install -D $(BUILDDIR)/delta $(BINDIR)/delta
 
 clean:
-	rm $(BUILDDIR)/delta
-	rm $(BUILDDIR)/delta.o
-	rm river-layout-v3.h
-	rm river-layout-v3.c
-	rm $(BUILDDIR)/river-layout-v3.o
+	rm -f $(BUILDDIR)/delta
+	rm -f $(BUILDDIR)/delta.o
+	rm -f river-layout-v3.h
+	rm -f river-layout-v3.c
+	rm -f $(BUILDDIR)/river-layout-v3.o
 	rmdir $(BUILDDIR)
 
 edit: river-layout-v3.h
