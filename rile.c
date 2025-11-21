@@ -59,13 +59,10 @@ struct wl_list outputs;
 bool loop = true;
 int ret = EXIT_FAILURE;
 
-static void layout_handle_layout_demand(void *data,
-                                        struct river_layout_v3 *river_layout_v3,
-                                        uint32_t view_count, uint32_t width,
-                                        uint32_t height, uint32_t tags,
-                                        uint32_t serial) {
-  struct Output *output = (struct Output *)data;
-
+static void layout_handle_layout_demand_tile(
+    struct Output *output, struct river_layout_v3 *river_layout_v3,
+    uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
+    uint32_t serial) {
   /* Simple tiled layout with no frills.
    *
    * If you want to create your own layout, just rip the following code
@@ -107,29 +104,151 @@ static void layout_handle_layout_demand(void *data,
         view_width - (2 * output->view_padding),
         view_height - (2 * output->view_padding), serial);
   }
+  river_layout_v3_commit(output->layout, "[]=", serial);
+}
 
-  /* Committing the layout means telling the server that your code is done
-   * laying out windows. Make sure you have pushed exactly the right
-   * amount of view dimensions, a mismatch is a protocol error.
-   *
-   * You also have to provide a layout name. This is a user facing string
-   * that the server can forward to status bars. You can use it to tell
-   * the user which layout is currently in use. You could also add some
-   * status information about your layout, but in this example we are
-   * boring and just use a static "[]=" like in dwm.
-   */
+static void layout_handle_layout_demand_spiral(
+    struct Output *output, struct river_layout_v3 *river_layout_v3,
+    uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
+    uint32_t serial) {
+  width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
+  unsigned int main_size, stack_size, view_x, view_y, view_width, view_height;
+  if (output->main_count == 0) {
+    main_size = 0;
+    stack_size = width;
+  } else if (view_count <= output->main_count) {
+    main_size = width;
+    stack_size = 0;
+  } else {
+    main_size = width * output->main_ratio;
+    stack_size = width - main_size;
+  }
+  for (unsigned int i = 0; i < view_count; i++) {
+    if (i < output->main_count) /* main area. */
+    {
+      view_x = 0;
+      view_width = main_size;
+      view_height = height / MIN(output->main_count, view_count);
+      view_y = i * view_height;
+    } else /* Stack area. */
+    {
+      view_x = main_size;
+      view_width = stack_size;
+      view_height = height / (view_count - output->main_count);
+      view_y = (i - output->main_count) * view_height;
+    }
+
+    river_layout_v3_push_view_dimensions(
+        output->layout, view_x + output->view_padding + output->outer_padding,
+        view_y + output->view_padding + output->outer_padding,
+        view_width - (2 * output->view_padding),
+        view_height - (2 * output->view_padding), serial);
+  }
+  river_layout_v3_commit(output->layout, "@", serial);
+}
+
+static void layout_handle_layout_demand_column(
+    struct Output *output, struct river_layout_v3 *river_layout_v3,
+    uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
+    uint32_t serial) {
+  width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
+  unsigned int main_size, stack_size, view_x, view_y, view_width, view_height;
+  if (output->main_count == 0) {
+    main_size = 0;
+    stack_size = width;
+  } else if (view_count <= output->main_count) {
+    main_size = width;
+    stack_size = 0;
+  } else {
+    main_size = width * output->main_ratio;
+    stack_size = width - main_size;
+  }
+  for (unsigned int i = 0; i < view_count; i++) {
+    if (i < output->main_count) /* main area. */
+    {
+      view_x = 0;
+      view_width = main_size;
+      view_height = height / MIN(output->main_count, view_count);
+      view_y = i * view_height;
+    } else /* Stack area. */
+    {
+      view_x = main_size;
+      view_width = stack_size;
+      view_height = height / (view_count - output->main_count);
+      view_y = (i - output->main_count) * view_height;
+    }
+
+    river_layout_v3_push_view_dimensions(
+        output->layout, view_x + output->view_padding + output->outer_padding,
+        view_y + output->view_padding + output->outer_padding,
+        view_width - (2 * output->view_padding),
+        view_height - (2 * output->view_padding), serial);
+  }
+  river_layout_v3_commit(output->layout, "|||", serial);
+}
+
+static void layout_handle_layout_demand_stack(
+    struct Output *output, struct river_layout_v3 *river_layout_v3,
+    uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
+    uint32_t serial) {
+  width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
+  unsigned int main_size, stack_size, view_x, view_y, view_width, view_height;
+  if (output->main_count == 0) {
+    main_size = 0;
+    stack_size = width;
+  } else if (view_count <= output->main_count) {
+    main_size = width;
+    stack_size = 0;
+  } else {
+    main_size = width * output->main_ratio;
+    stack_size = width - main_size;
+  }
+  for (unsigned int i = 0; i < view_count; i++) {
+    if (i < output->main_count) /* main area. */
+    {
+      view_x = 0;
+      view_width = main_size;
+      view_height = height / MIN(output->main_count, view_count);
+      view_y = i * view_height;
+    } else /* Stack area. */
+    {
+      view_x = main_size;
+      view_width = stack_size;
+      view_height = height / (view_count - output->main_count);
+      view_y = (i - output->main_count) * view_height;
+    }
+
+    river_layout_v3_push_view_dimensions(
+        output->layout, view_x + output->view_padding + output->outer_padding,
+        view_y + output->view_padding + output->outer_padding,
+        view_width - (2 * output->view_padding),
+        view_height - (2 * output->view_padding), serial);
+  }
+  river_layout_v3_commit(output->layout, "=", serial);
+}
+
+static void layout_handle_layout_demand(void *data,
+                                        struct river_layout_v3 *river_layout_v3,
+                                        uint32_t view_count, uint32_t width,
+                                        uint32_t height, uint32_t tags,
+                                        uint32_t serial) {
+  struct Output *output = (struct Output *)data;
   switch (output->layout_style) {
   case TILE:
-    river_layout_v3_commit(output->layout, "[]=", serial);
+    layout_handle_layout_demand_tile(output, river_layout_v3, view_count, width,
+                                     height, tags, serial);
     break;
   case SPIRAL:
-    river_layout_v3_commit(output->layout, "@", serial);
+    layout_handle_layout_demand_spiral(output, river_layout_v3, view_count,
+                                       width, height, tags, serial);
     break;
   case COLUMN:
-    river_layout_v3_commit(output->layout, "|||", serial);
+    layout_handle_layout_demand_column(output, river_layout_v3, view_count,
+                                       width, height, tags, serial);
     break;
   case STACK:
-    river_layout_v3_commit(output->layout, "=", serial);
+    layout_handle_layout_demand_stack(output, river_layout_v3, view_count,
+                                      width, height, tags, serial);
     break;
   }
 }
