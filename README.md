@@ -52,3 +52,13 @@ riverctl map normal Super+Shift L send-layout-cmd swapable "main_count -1"
 # Super+W to swap layout
 riverctl map normal Super W send-layout-cmd swapable "swap_layout"
 ```
+
+## Licensing
+
+This code (in delta.c, and the Makefile) is licensed under the GPL-3.0-only
+license. The layout generator is a modified version of the example layout generator
+from river found here: [https://codeberg.org/river/river/src/branch/0.3.x/contrib/layout.c](https://codeberg.org/river/river/src/branch/0.3.x/contrib/layout.c),
+which is licensed under the GPL-3.0-only license. The river-layout-v3.xml
+protocol file is from
+[https://codeberg.org/river/river/src/branch/0.3.x/protocol/river-layout-v3.xml](https://codeberg.org/river/river/src/branch/0.3.x/protocol/river-layout-v3.xml),
+and is licensed under the MIT license.
