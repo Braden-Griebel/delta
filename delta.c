@@ -40,7 +40,7 @@
 #define CLAMP(a, b, c) (MIN(MAX(b, c), MAX(MIN(b, c), a)))
 
 /* Define number of views */
-#define LAYOUT_STYLE_COUNT 6
+#define LAYOUT_STYLE_COUNT 7
 
 /* Create an enum to describe the layout state */
 enum LayoutStyle {
@@ -50,6 +50,7 @@ enum LayoutStyle {
   COLUMN,      // Equal sized columns
   STACK,       // Equal sized rows
   GRID,        // Equal sized rows and columns
+  MONOCLE,     // Single large window
 };
 
 struct Output {
@@ -263,7 +264,7 @@ static void delta_handle_layout_demand_spiral(
   if (diminish) {
     river_layout_v3_commit(output->layout, "↘", serial);
   } else {
-    river_layout_v3_commit(output->layout, "@", serial);
+    river_layout_v3_commit(output->layout, "꩜", serial);
   }
 }
 
@@ -294,7 +295,7 @@ static void delta_handle_layout_demand_column(
     river_layout_v3_push_view_dimensions(
         output->layout,
         view_x + output->view_padding + output->outer_padding, // x-coord
-        output->outer_padding,                                 // y-coord
+        output->outer_padding + output->view_padding,          // y-coord
         view_inner_width, // Width of view (after padding accounted for)
         height,           // Full usable height
         serial);
@@ -330,7 +331,8 @@ static void delta_handle_layout_demand_stack(
     view_y = i * view_outer_height;
     river_layout_v3_push_view_dimensions(
         output->layout,
-        output->outer_padding, // View x-coord is just the outer_padding
+        output->outer_padding +
+            output->view_padding, // View x-coord is just the outer_padding
         view_y + output->view_padding +
             output->outer_padding, // View y-coord accounting for padding
         width,                     // Just full usable width
@@ -394,6 +396,36 @@ static void delta_handle_layout_demand_grid(
   river_layout_v3_commit(output->layout, "#", serial);
 }
 
+/**
+ * Handle a layout request for a monocle layout
+ *
+ * This layout is a single large window
+ *
+ * @param view_count number of views in the layout
+ * @param width width of the usable area
+ * @param height height of the usable area
+ * @param tags tags of teh output, 32-bit bitfield
+ * @param serial serial of the layout demand
+ * */
+static void delta_handle_layout_demand_monocle(
+    struct Output *output, struct river_layout_v3 *river_layout_v3,
+    uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
+    uint32_t serial) {
+  // Start by calculating the available width and height after accocunting
+  // for the outer padding
+  width -= 2 * output->outer_padding, height -= 2 * output->outer_padding;
+  for (unsigned int i = 0; i < view_count; i++) {
+    river_layout_v3_push_view_dimensions(
+        output->layout,
+        output->outer_padding + output->view_padding, // View x-coord
+        output->outer_padding + output->view_padding, // View y-coord
+        width,                                        // Full width
+        height,                                       // Full height
+        serial);
+  }
+  river_layout_v3_commit(output->layout, "🔍", serial);
+}
+
 static void delta_handle_layout_demand(void *data,
                                        struct river_layout_v3 *river_layout_v3,
                                        uint32_t view_count, uint32_t width,
@@ -424,6 +456,10 @@ static void delta_handle_layout_demand(void *data,
   case GRID:
     delta_handle_layout_demand_grid(output, river_layout_v3, view_count, width,
                                     height, tags, serial);
+    break;
+  case MONOCLE:
+    delta_handle_layout_demand_monocle(output, river_layout_v3, view_count,
+                                       width, height, tags, serial);
     break;
   }
 }
@@ -571,6 +607,27 @@ layout_handle_user_command(void *data,
     // Swap to next layout style
     output->layout_style = (output->layout_style + 1) % LAYOUT_STYLE_COUNT;
 
+  } else if (word_comp(command, "set_layout")) {
+    const char *new_layout = get_second_word(&command, "set_layout");
+    if (new_layout == NULL)
+      return;
+    if (word_comp(new_layout, "tile")) {
+      output->layout_style = TILE;
+    } else if (word_comp(new_layout, "spiral")) {
+      output->layout_style = SPIRAL;
+    } else if (word_comp(new_layout, "diminishing")) {
+      output->layout_style = DIMINISHING;
+    } else if (word_comp(new_layout, "column")) {
+      output->layout_style = COLUMN;
+    } else if (word_comp(new_layout, "stack")) {
+      output->layout_style = STACK;
+    } else if (word_comp(new_layout, "grid")) {
+      output->layout_style = GRID;
+    } else if (word_comp(new_layout, "monocle")) {
+      output->layout_style = MONOCLE;
+    } else {
+      fprintf(stderr, "ERROR: unknown layout: %s\n", new_layout);
+    }
   } else
     fprintf(stderr, "ERROR: Unknown command: %s\n", command);
 }
@@ -746,7 +803,49 @@ static void finish_wayland(void) {
   wl_display_disconnect(wl_display);
 }
 
+void print_help() {
+  puts(
+      "Delta a layout generator for the River window manager\n"
+      "Includes swappable layouts: tile, spiral, diminishing, stack, columns, "
+      "grid, and monocle\n"
+      "\n"
+      "Usage: delta [options]\n"
+      "\t-h,--help: Print this help message and exit\n"
+      "\t-main-count <count>: The number of windows in the main stack\n"
+      "\t-main-ratio <ratio>: The ratio of the main stack to the remaining "
+      "views\n"
+      "\t-outer-padding <padding>: The padding around the edges of the layout\n"
+      "\t-view-padding <padding>: The padding around the edges of each view\n"
+      "Layout Commands (while delta is running, sent with riverctl):\n"
+      "\tmain_count [+/-]<count>: Set the main count, or modify current value "
+      "with +/- values\n"
+      "\tmain_ratio [+/-]<ratio> Set the main ratio, or modify current value "
+      "with +/- values \n"
+      "\touter_padding [+/-]<count>: Set the outer padding, or modify current "
+      "value "
+      "with +/- values\n"
+      "\tview_padding [+/-]<count>: Set the view padding, or modify current "
+      "value "
+      "with +/- values\n"
+      "\tswap_layout: Move to the next layout style\n"
+      "\tset_layout <layout>: Set the layout style (all lowercase)\n"
+      "Layouts:\n"
+      "Tile: one large window with additional view stack (like master stack)\n"
+      "Spiral: views spiraling towards center of screen\n"
+      "Diminishing: views shrinking towards the bottom right corner\n"
+      "Stack: single stack\n"
+      "Columns: equal sized columns\n"
+      "Grid: square grid of views\n"
+      "Monocle: single large view\n");
+}
+
 int main(int argc, char *argv[]) {
+  // Check if help flag is passed
+  if (argc >= 2 && (word_comp(argv[1], "--help") || word_comp(argv[1], "-h"))) {
+    print_help();
+    return EXIT_SUCCESS;
+  }
+
   // Step through the arguments
   int arg_pointer = 1;
   while (arg_pointer < argc) {
