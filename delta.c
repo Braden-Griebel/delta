@@ -53,6 +53,8 @@ enum LayoutStyle {
   MONOCLE,     // Single large window
 };
 
+enum LayoutStyle delta_monocle_switch = TILE;
+
 struct Output {
   struct wl_list link;
 
@@ -557,9 +559,9 @@ static bool word_comp(const char *word, const char *comp) {
 }
 
 static void
-layout_handle_user_command(void *data,
-                           struct river_layout_v3 *river_layout_manager_v3,
-                           const char *_command) {
+delta_handle_user_command(void *data,
+                          struct river_layout_v3 *river_layout_manager_v3,
+                          const char *_command) {
   /* The user_command event will be received whenever the user decided to
    * send us a command. As an example, commands can be used to change the
    * layout values. Parsing the commands is the job of the layout
@@ -630,6 +632,23 @@ layout_handle_user_command(void *data,
     } else {
       fprintf(stderr, "ERROR: unknown layout: %s\n", new_layout);
     }
+  } else if (word_comp(command, "toggle_monocle")) {
+    if (delta_monocle_switch == MONOCLE) {
+      // Not currently in monocle style (as switch
+      // represents previous layout style)
+
+      // Set the previous style in order to recover it
+      delta_monocle_switch = output->layout_style;
+      // Change the current view to monocle
+      output->layout_style = MONOCLE;
+    } else {
+      // Go back to the previous layout
+      output->layout_style = delta_monocle_switch;
+      // Set the switch to monocle so next time it will
+      // switch into monocle mode
+      delta_monocle_switch = MONOCLE;
+    }
+
   } else
     fprintf(stderr, "ERROR: Unknown command: %s\n", command);
 }
@@ -637,7 +656,7 @@ layout_handle_user_command(void *data,
 static const struct river_layout_v3_listener layout_listener = {
     .namespace_in_use = layout_handle_namespace_in_use,
     .layout_demand = delta_handle_layout_demand,
-    .user_command = layout_handle_user_command,
+    .user_command = delta_handle_user_command,
 };
 
 static void configure_output(struct Output *output) {
@@ -831,6 +850,7 @@ void print_help() {
       "with +/- values\n"
       "\tswap_layout: Move to the next layout style\n"
       "\tset_layout <layout>: Set the layout style (all lowercase)\n"
+      "\ttoggle_monocle: Toggle on/off monocle layout\n"
       "Layouts:\n"
       "Tile: one large window with additional view stack (like master stack)\n"
       "Spiral: views spiraling towards center of screen\n"
