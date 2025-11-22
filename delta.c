@@ -299,7 +299,7 @@ static void delta_handle_layout_demand_column(
         view_x + output->view_padding + output->outer_padding, // x-coord
         output->outer_padding + output->view_padding,          // y-coord
         view_inner_width, // Width of view (after padding accounted for)
-        height,           // Full usable height
+        height - (2 * output->view_padding), // Full usable height
         serial);
   }
   river_layout_v3_commit(output->layout, "|||", serial);
@@ -337,7 +337,7 @@ static void delta_handle_layout_demand_stack(
             output->view_padding, // View x-coord is just the outer_padding
         view_y + output->view_padding +
             output->outer_padding, // View y-coord accounting for padding
-        width,                     // Just full usable width
+        width - (2 * output->view_padding), // Just full usable width
         view_inner_height, // Height of the view (accounting for padding )
         serial);
   }
@@ -421,10 +421,8 @@ static void delta_handle_layout_demand_monocle(
         output->layout,
         output->outer_padding + output->view_padding, // View x-coord
         output->outer_padding + output->view_padding, // View y-coord
-        width - (2 * output->outer_padding) -
-            (2 * output->view_padding), // Full width
-        height - (2 * output->outer_padding) -
-            (2 * output->view_padding), // Full height
+        width - (2 * output->view_padding),           // Full width
+        height - (2 * output->view_padding),          // Full height
         serial);
   }
   river_layout_v3_commit(output->layout, "🔍", serial);
@@ -469,8 +467,8 @@ static void delta_handle_layout_demand(void *data,
 }
 
 static void
-layout_handle_namespace_in_use(void *data,
-                               struct river_layout_v3 *river_layout_v3) {
+delta_handle_namespace_in_use(void *data,
+                              struct river_layout_v3 *river_layout_v3) {
   /* Oh no, the namespace we choose is already used by another client!
    * All we can do now is destroy the river_layout object. Because we are
    * lazy, we just abort and let our cleanup mechanism destroy it. A more
@@ -654,7 +652,7 @@ delta_handle_user_command(void *data,
 }
 
 static const struct river_layout_v3_listener layout_listener = {
-    .namespace_in_use = layout_handle_namespace_in_use,
+    .namespace_in_use = delta_handle_namespace_in_use,
     .layout_demand = delta_handle_layout_demand,
     .user_command = delta_handle_user_command,
 };
@@ -824,7 +822,7 @@ static void finish_wayland(void) {
   wl_display_disconnect(wl_display);
 }
 
-void print_help() {
+void delta_print_help() {
   puts(
       "Delta a layout generator for the River window manager\n"
       "Includes swappable layouts: tile, spiral, diminishing, stack, columns, "
@@ -864,7 +862,7 @@ void print_help() {
 int main(int argc, char *argv[]) {
   // Check if help flag is passed
   if (argc >= 2 && (word_comp(argv[1], "--help") || word_comp(argv[1], "-h"))) {
-    print_help();
+    delta_print_help();
     return EXIT_SUCCESS;
   }
 
@@ -887,10 +885,6 @@ int main(int argc, char *argv[]) {
     }
     arg_pointer += 2;
   }
-  // printf("main count: %u", global_main_count);
-  // printf("main ratio: %lf", global_main_ratio);
-  // printf("view padding: %u", global_view_padding);
-  // printf("outer padding: %u", global_outer_padding);
 
   if (init_wayland()) {
     ret = EXIT_SUCCESS;
