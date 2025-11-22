@@ -419,8 +419,10 @@ static void delta_handle_layout_demand_monocle(
         output->layout,
         output->outer_padding + output->view_padding, // View x-coord
         output->outer_padding + output->view_padding, // View y-coord
-        width,                                        // Full width
-        height,                                       // Full height
+        width - (2 * output->outer_padding) -
+            (2 * output->view_padding), // Full width
+        height - (2 * output->outer_padding) -
+            (2 * output->view_padding), // Full height
         serial);
   }
   river_layout_v3_commit(output->layout, "🔍", serial);
