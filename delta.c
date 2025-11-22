@@ -175,6 +175,20 @@ static void delta_handle_layout_demand_tile(
   river_layout_v3_commit(output->layout, "[]=", serial);
 }
 
+/**
+ * Handle a layout request for a spiral layout
+ *
+ * This layout halves the size of the of each view, alternating
+ * between width and height
+ *
+ * @param view_count number of views in the layout
+ * @param width width of the usable area
+ * @param height height of the usable area
+ * @param tags tags of teh output, 32-bit bitfield
+ * @param serial serial of the layout demand
+ * @param diminish whether the spiral should be diminishing (goes to the right
+ * bottom corner)
+ * */
 static void delta_handle_layout_demand_spiral(
     struct Output *output, struct river_layout_v3 *river_layout_v3,
     uint32_t view_count, uint32_t width, uint32_t height, uint32_t tags,
